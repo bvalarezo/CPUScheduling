@@ -1,6 +1,9 @@
 package osp.Threads;
 
 import java.util.Vector;
+
+import javax.xml.ws.Dispatch;
+
 import java.util.Enumeration;
 import osp.Utilities.*;
 import osp.IFLModules.*;
@@ -37,9 +40,15 @@ public class ThreadCB extends IflThreadCB {
      * 
      * @OSPProject Threads
      */
+
+    private static ReadyQueue sharedReadyQueue;
+    private int dispatchCount;
+    private int queueID;
+
     public ThreadCB() {
         // your code goes here
-
+        super();
+        dispatchCount = 0;
     }
 
     /**
@@ -50,7 +59,10 @@ public class ThreadCB extends IflThreadCB {
      */
     public static void init() {
         // your code goes here
-
+        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
+        // set up the queue
+        sharedReadyQueue = new ReadyQueue();
     }
 
     /**
@@ -71,7 +83,24 @@ public class ThreadCB extends IflThreadCB {
      */
     static public ThreadCB do_create(TaskCB task) {
         // your code goes here
-
+        ThreadCB thread;
+        if (MaxThreadsPerTask < task.getThreadCount()) {
+            thread = null;
+            dispatch();
+            return thread;
+        }
+        thread = new ThreadCB(); // CREATE A THREAD
+        if (task.addThread(thread) == FAILURE) { // TRY TO ADD TO TASK
+            thread = null;
+            dispatch();
+            return thread;
+        }
+        thread.setTask(task); // SET THREAD TO TASK
+        thread.setStatus(ThreadReady);
+        thread.setQueueID(1);
+        sharedReadyQueue.pushObjToQueue(1, thread); // ADD TO QUEUE
+        dispatch();
+        return thread;
     }
 
     /**
@@ -89,7 +118,8 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_kill() {
         // your code goes here
-
+        MyOut.print(this, "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
     }
 
     /**
@@ -109,7 +139,8 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_suspend(Event event) {
         // your code goes here
-
+        MyOut.print(this, "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
     }
 
     /**
@@ -123,11 +154,12 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_resume() {
         // your code goes here
-
+        MyOut.print(this, "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
     }
 
     /**
-     * Selects a thread from the run queue and dispatches it.
+     * Selects a thread from the ready queue and dispatches it.
      * 
      * If there is just one theread ready to run, reschedule the thread currently on
      * the processor.
@@ -140,7 +172,9 @@ public class ThreadCB extends IflThreadCB {
      */
     public static int do_dispatch() {
         // your code goes here
-
+        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
+        return FAILURE;
     }
 
     /**
@@ -168,6 +202,30 @@ public class ThreadCB extends IflThreadCB {
 
     }
 
+    public static ReadyQueue getSharedReadyQueue() {
+        return sharedReadyQueue;
+    }
+
+    public static void setSharedReadyQueue(ReadyQueue sharedReadyQueue) {
+        ThreadCB.sharedReadyQueue = sharedReadyQueue;
+    }
+
+    public int getDispatchCount() {
+        return dispatchCount;
+    }
+
+    public void setDispatchCount(int dispatchCount) {
+        this.dispatchCount = dispatchCount;
+    }
+
+    public int getQueueID() {
+        return queueID;
+    }
+
+    public void setQueueID(int queueID) {
+        this.queueID = queueID;
+    }
+
     /*
      * Feel free to add methods/fields to improve the readability of your code
      */
@@ -177,3 +235,86 @@ public class ThreadCB extends IflThreadCB {
 /*
  * Feel free to add local classes to improve the readability of your code
  */
+class ReadyQueue {
+
+    private QueueList queue1;
+    private QueueList queue2;
+    private QueueList queue3;
+
+    public ReadyQueue() {
+        this.queue1 = new QueueList();
+        this.queue2 = new QueueList();
+        this.queue3 = new QueueList();
+    }
+
+    public QueueList getQueue1() {
+        return queue1;
+    }
+
+    public void setQueue1(QueueList queue1) {
+        this.queue1 = queue1;
+    }
+
+    public QueueList getQueue2() {
+        return queue2;
+    }
+
+    public void setQueue2(QueueList queue2) {
+        this.queue2 = queue2;
+    }
+
+    public QueueList getQueue3() {
+        return queue3;
+    }
+
+    public void setQueue3(QueueList queue3) {
+        this.queue3 = queue3;
+    }
+
+    public boolean isQueue1Empty() {
+        return queue1.isEmpty();
+    }
+
+    public boolean isQueue2Empty() {
+        return queue2.isEmpty();
+    }
+
+    public boolean isQueue3Empty() {
+        return queue3.isEmpty();
+    }
+
+    public final synchronized void pushObjToQueue(int queue, Object Obj) {
+        if (queue == 1) {
+            queue1.push(obj);
+        } else if (queue == 2) {
+            queue2.push(obj);
+        } else if (queue == 3) {
+            queue3.push(obj);
+        }
+    }
+
+    public final synchronized Object popObjectFromQueue(int queue, Object Obj) {
+        if (queue == 1) {
+            return queue1.pop(obj);
+        } else if (queue == 2) {
+            return queue2.pop(obj);
+        } else if (queue == 3) {
+            return queue3.pop(obj);
+        }
+    }
+}
+
+class QueueList extends GenericList {
+
+    public QueueList() {
+        super();
+    }
+
+    public final synchronized void push(Object obj) {
+        super.insert(obj);
+    }
+
+    public final synchronized Object pop() {
+        return super.removeTail();
+    }
+}
