@@ -145,6 +145,14 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print(this, "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
+        if (getStatus() == ThreadRunning) {
+            setStatus(ThreadWaiting);
+            getTask().setCurrentThread(null);
+        } else if (getStatus() >= ThreadWaiting) {
+            setStatus(getStatus() + 1);
+        }
+        event.addThread(this);
+        dispatch();
     }
 
     /**
@@ -160,6 +168,18 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print(this, "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
+        MyOut.print(this, "ThreadStatus:" + printableStatus(this.getStatus()));
+        if (getStatus() > ThreadWaiting) {
+            setStatus(getStatus() - 1);
+        } else if (getStatus() == ThreadWaiting) {
+            setStatus(ThreadReady);
+            sharedReadyQueue.pushObjToQueue(this.getQueueID(), this); // add it back to the queue
+        } else {
+            // ERROR
+            // "Only a thread with the status ThreadWaiting or higher can be resumed."
+            return;
+        }
+        dispatch();
     }
 
     /**
@@ -182,17 +202,21 @@ public class ThreadCB extends IflThreadCB {
         long count;
         TaskCB oldTask = null, newTask = null;
         ThreadCB newThread = null, oldThread = null;
-        PageTable pT;
         // pop the next thread to run (New Thread)
-        pT = MMU.getPTBR();
+        MyOut.print("osp.Threads.ThreadCB", "PTBR() ==> " + MMU.getPTBR());
         try {
-            oldTask = pT.getTask();
-            oldThread = oldTask.getCurrentThread();
-            oldTask.setCurrentThread(null);
+            oldThread = MMU.getPTBR().getTask().getCurrentThread();
+            oldTask = MMU.getPTBR().getTask();
             oldThread.setStatus(ThreadReady);
+            oldTask.setCurrentThread(null);
         } catch (NullPointerException e) {
             oldThread = null;
+            oldTask = null;
+        } finally {
+            MMU.setPTBR(null);
         }
+        MyOut.print("osp.Threads.ThreadCB", "Invovation..." + invocation);
+        MyOut.print("osp.Threads.ThreadCB", "oldThread ==> " + oldThread);
         switch (invocation) {
             case 1:
             case 2:
@@ -216,15 +240,18 @@ public class ThreadCB extends IflThreadCB {
             case 6:
                 if (!sharedReadyQueue.isQueue3Empty()) {
                     newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(3);
+                    invocation = 0;
                     break;
                 } else {
                     // the entire Q is empty, try to reinstate the old thread.
                     if (oldThread == null) {
-                        // there is nothing todo in this invocation...
+                        // there is nothing todo/run in this invocation...
                         invocation = 0;
                         return FAILURE;
 
                     } else {
+                        // MMU.getPTBR should be the same
+                        MMU.setPTBR(oldTask.getPageTable());
                         oldTask.setCurrentThread(oldThread);
                         oldThread.setStatus(ThreadRunning);
                         oldThread.incrementDispatchCount();
@@ -234,6 +261,7 @@ public class ThreadCB extends IflThreadCB {
                 }
         }
         // Context Switch
+        MyOut.print("osp.Threads.ThreadCB", "newThread ==> " + newThread);
         newTask = newThread.getTask();
         MMU.setPTBR(newTask.getPageTable());
         newTask.setCurrentThread(newThread);
@@ -241,7 +269,6 @@ public class ThreadCB extends IflThreadCB {
         newThread.incrementDispatchCount();
         // Put old thread back in the Queue
         if (oldThread != null) {
-            oldThread.setStatus(ThreadReady);
             count = oldThread.getDispatchCount();
             if (count < 4) {
                 // put it into Q1
