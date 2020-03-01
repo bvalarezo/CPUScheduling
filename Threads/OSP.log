@@ -1,5 +1,5 @@
 Sim: 0 [EventEngine.EventDriver]  
-	Simulation Start Time: Sat Feb 29 16:21:58 EST 2020
+	Simulation Start Time: Sat Feb 29 23:34:34 EST 2020
 	Parameter file: Misc/params.osp
 
 	Legend:
@@ -48,34 +48,68 @@ Sim: 0 [IFLModules.ThreadCB]
 	Trying to create new thread for Task(1/L)
 My:  0 [Threads.ThreadCB]  
 	Entering Student Method...do_create
+Sim: 0 [IFLModules.ThreadCB]  
+	Created new thread Thread(0:1/RD)
+Sim: 0 [IFLModules.ThreadCB]  
+	Entering dispatch(); current running thread is null
 My:  0 [Threads.ThreadCB]  
-	Task Thread Count0
-Sim: 0 <<Warning!>> [IFLModules.ThreadCB]  
-	After do_create(null): dispatch() should have been called
+	Entering Student Method...do_dispatch
+Sim: 0 [IFLModules.ThreadCB]  
+	Dispatching Thread(0:1/RU)
+Sim: 0 [IFLModules.ThreadCB]  
+	Leaving dispatch()
+Sim: 11 [IFLModules.FileSys]  
+	System call delete(`/etc/go/Oh,my/go')
+Mod: 11 [FileSys.FileSys]  
+	File `/etc/go/Oh,my/go' doesn't exist -- cannot delete
+Sim: 11 [IFLModules.FileSys]  
+	System call delete(`/etc/go/Oh,my/go')  failed, as expected
+Sim: 18 [IFLModules.MMU]  
+	Call: MMU.refer(Address(12617),MemoryWrite,Thread(0:1/RU))
+	  [Page(12:1/null),null,ValidFlag(OSP)=false,ValidFlag(Student)=false,ValidatingThread=null]
+Mod: 18 [Memory.MMU]  
+	Referencing main memory address 12617, Page(12:1/null), MemoryWrite
+Mod: 18 [Memory.MMU]  
+	Page(12:1/null) is invalid
+Sim: 18 [IFLModules.PageFaultHandler]  
+	Pagefault handler entered for: Page(12:1/null),MemoryWrite,Thread(0:1/RU)
+Mod: 18 [Memory.PageFaultHandler]  
+	Entering do_handlePageFault(): Thread(0:1/RU),MemoryWrite,Page(12:1/null); validating thread=Thread(0:1/RU)
+Sim: 18 [Threads.ThreadCB]  
+	Entering suspend(Thread(0:1/RU),SystemEvent(PageFault))
+My:  18 [Threads.ThreadCB]  
+	Entering Student Method...do_suspend
+Sim: 18 <<Warning!>> [IFLModules.ThreadCB]  
+	After do_suspend(Thread(0:1/RU),SystemEvent(PageFault)): dispatch() should have been called
 
 	at osp.IFLModules.IflThreadCB.N(IflThreadCB.java:577)
-	at osp.IFLModules.IflThreadCB.for(IflThreadCB.java:612)
-	at osp.Tasks.TaskCB.bo(TaskCB.java:119)
-	at osp.IFLModules.IflTaskCB.bg(IflTaskCB.java:250)
-	at osp.IFLModules.CallbackTaskCreate.voidCallback(IflTaskCB.java:913)
-	at osp.EventEngine.EventCallback.Activate(EventCallback.java:48)
-	at osp.EventEngine.EventDriver.go(EventDriver.java:124)
-	at osp.EventEngine.EngineThread.run(EngineThread.java:60)
-Sim: 0 <<Error!>> [IFLModules.ThreadCB]  
-	Failed to create new thread for Task(1/L) when success was expected
+	at osp.IFLModules.IflThreadCB.a(IflThreadCB.java:1284)
+	at osp.Memory.PageFaultHandler.if(PageFaultHandler.java:114)
+	at osp.IFLModules.IflPageFaultHandler.a(IflPageFaultHandler.java:139)
+	at osp.IFLModules.IflPageFaultHandler.handleInterrupt(IflPageFaultHandler.java:44)
+	at osp.Interrupts.Interrupts.interrupt(Interrupts.java:48)
+	at osp.Hardware.CPU.interrupt(CPU.java:54)
+	at osp.Memory.MMU.if(MMU.java:159)
+	at osp.IFLModules.IflMMU.a(IflMMU.java:220)
+	at osp.IFLModules.ReferThread.run(ReferThread.java:61)
+Sim: 18 <<Error!>> [Threads.ThreadCB]  
+	After do_suspend(Thread(0:1/RU),SystemEvent(PageFault)): Invalid status change:
+	  Thread status is ThreadRunning; should be ThreadWaiting0
 
-	at osp.IFLModules.IflThreadCB.for(IflThreadCB.java:649)
-	at osp.Tasks.TaskCB.bo(TaskCB.java:119)
-	at osp.IFLModules.IflTaskCB.bg(IflTaskCB.java:250)
-	at osp.IFLModules.CallbackTaskCreate.voidCallback(IflTaskCB.java:913)
-	at osp.EventEngine.EventCallback.Activate(EventCallback.java:48)
-	at osp.EventEngine.EventDriver.go(EventDriver.java:124)
-	at osp.EventEngine.EngineThread.run(EngineThread.java:60)
+	at osp.IFLModules.IflThreadCB.a(IflThreadCB.java:1287)
+	at osp.Memory.PageFaultHandler.if(PageFaultHandler.java:114)
+	at osp.IFLModules.IflPageFaultHandler.a(IflPageFaultHandler.java:139)
+	at osp.IFLModules.IflPageFaultHandler.handleInterrupt(IflPageFaultHandler.java:44)
+	at osp.Interrupts.Interrupts.interrupt(Interrupts.java:48)
+	at osp.Hardware.CPU.interrupt(CPU.java:54)
+	at osp.Memory.MMU.if(MMU.java:159)
+	at osp.IFLModules.IflMMU.a(IflMMU.java:220)
+	at osp.IFLModules.ReferThread.run(ReferThread.java:61)
 
-Sim:0 [Utilities.SnapshotTaker]  
+Sim:18 [Utilities.SnapshotTaker]  
 	
 
-[Snapshot at 0]
+[Snapshot at 18]
 
 MEMORY:
   Free frames: 30(100%) out of 30
@@ -104,6 +138,19 @@ Memory map:
 |----------|------------------------------|
 
 
+Page table for Task 1:
+  Valid pages: 0 out of 64
+|------|----------------------------------------------------------------|
+|Page  |0000000000111111111122222222223333333333444444444455555555556666|
+|number|0123456789012345678901234567890123456789012345678901234567890123|
+|------|----------------------------------------------------------------|
+|valid |                                                                |
+|------|----------------------------------------------------------------|
+|      |                                                                |
+|frame |                                                                |
+|number|                                                                |
+|------|----------------------------------------------------------------|
+
 
 DEVICES:
   Device 0: Swap Device   (mount point: /vm/)
@@ -129,19 +176,20 @@ DEVICES:
 	    Device queue:  Empty
 
 TASKS and THREADS:
-  CPU Utilization: NaN%
-  Average service time per thread: NaN
-  Average normalized service time per thread: NaN
-  Total number of tasks: 0
-  Running thread(s): none
-  Threads summary: 0 alive
-  Among live threads: 0 running
+  CPU Utilization: 100.0%
+  Average service time per thread: 18.0
+  Average normalized service time per thread: 0.94736844
+  Total number of tasks: 1
+  Running thread(s): Thread(0:1/RU), CPU usage 18 ticks
+  Current task: Task(1/L), CPU usage 18 ticks
+  Threads summary: 1 alive
+  Among live threads: 1 running
                       0 suspended
                       0 ready
   ready queue = ()
-  running thread(s) = ()
+  running thread(s) = (0:1)
   waiting thread(s) = ()
-  thread(s) in pagefault = ()
+  thread(s) in pagefault = (0:1)
   killed thread(s) = ()
 
 FILES:
@@ -191,6 +239,6 @@ The suspended  RRBs:
 
 -----------------------------------------------
 
-Sim: 0 [Utilities.Simulation]  
+Sim: 18 [Utilities.Simulation]  
 	Elapsed time: 0 seconds
 

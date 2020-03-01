@@ -42,7 +42,8 @@ public class ThreadCB extends IflThreadCB {
      */
 
     private static ReadyQueue sharedReadyQueue;
-    private int dispatchCount;
+    private static int invocation;
+    private long dispatchCount;
     private int queueID;
 
     public ThreadCB() {
@@ -63,6 +64,7 @@ public class ThreadCB extends IflThreadCB {
         }.getClass().getEnclosingMethod().getName());
         // set up the queue
         sharedReadyQueue = new ReadyQueue();
+        invocation = 0;
     }
 
     /**
@@ -83,6 +85,8 @@ public class ThreadCB extends IflThreadCB {
      */
     static public ThreadCB do_create(TaskCB task) {
         // your code goes here
+        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
         ThreadCB thread;
         if (MaxThreadsPerTask < task.getThreadCount()) {
             thread = null;
@@ -90,12 +94,12 @@ public class ThreadCB extends IflThreadCB {
             return thread;
         }
         thread = new ThreadCB(); // CREATE A THREAD
+        thread.setTask(task); // SET THREAD TO TASK
         if (task.addThread(thread) == FAILURE) { // TRY TO ADD TO TASK
             thread = null;
             dispatch();
             return thread;
         }
-        thread.setTask(task); // SET THREAD TO TASK
         thread.setStatus(ThreadReady);
         thread.setQueueID(1);
         sharedReadyQueue.pushObjToQueue(1, thread); // ADD TO QUEUE
@@ -174,7 +178,84 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        return FAILURE;
+        invocation++;
+        long count;
+        TaskCB oldTask = null, newTask = null;
+        ThreadCB newThread = null, oldThread = null;
+        PageTable pT;
+        // pop the next thread to run (New Thread)
+        pT = MMU.getPTBR();
+        try {
+            oldTask = pT.getTask();
+            oldThread = oldTask.getCurrentThread();
+            oldTask.setCurrentThread(null);
+            oldThread.setStatus(ThreadReady);
+        } catch (NullPointerException e) {
+            oldThread = null;
+        }
+        switch (invocation) {
+            case 1:
+            case 2:
+            case 3:
+                if (!sharedReadyQueue.isQueue1Empty()) {
+                    newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(1);
+                    break;
+
+                } else {
+                    invocation = 3;
+                }
+            case 4:
+            case 5:
+                if (!sharedReadyQueue.isQueue2Empty()) {
+                    newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(2);
+                    break;
+
+                } else {
+                    invocation = 5;
+                }
+            case 6:
+                if (!sharedReadyQueue.isQueue3Empty()) {
+                    newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(3);
+                    break;
+                } else {
+                    // the entire Q is empty, try to reinstate the old thread.
+                    if (oldThread == null) {
+                        // there is nothing todo in this invocation...
+                        invocation = 0;
+                        return FAILURE;
+
+                    } else {
+                        oldTask.setCurrentThread(oldThread);
+                        oldThread.setStatus(ThreadRunning);
+                        oldThread.incrementDispatchCount();
+                        invocation = 0;
+                        return SUCCESS;
+                    }
+                }
+        }
+        // Context Switch
+        newTask = newThread.getTask();
+        MMU.setPTBR(newTask.getPageTable());
+        newTask.setCurrentThread(newThread);
+        newThread.setStatus(ThreadRunning);
+        newThread.incrementDispatchCount();
+        // Put old thread back in the Queue
+        if (oldThread != null) {
+            oldThread.setStatus(ThreadReady);
+            count = oldThread.getDispatchCount();
+            if (count < 4) {
+                // put it into Q1
+                oldThread.setQueueID(1);
+            } else if (4 <= count && count < 8) {
+                // put it into Q2
+                oldThread.setQueueID(2);
+            } else {
+                // put it into Q3
+                oldThread.setQueueID(3);
+            }
+            sharedReadyQueue.pushObjToQueue(oldThread.getQueueID(), oldThread);
+        }
+        return SUCCESS;
     }
 
     /**
@@ -210,12 +291,16 @@ public class ThreadCB extends IflThreadCB {
         ThreadCB.sharedReadyQueue = sharedReadyQueue;
     }
 
-    public int getDispatchCount() {
+    public long getDispatchCount() {
         return dispatchCount;
     }
 
-    public void setDispatchCount(int dispatchCount) {
+    public void setDispatchCount(long dispatchCount) {
         this.dispatchCount = dispatchCount;
+    }
+
+    public void incrementDispatchCount() {
+        this.dispatchCount++;
     }
 
     public int getQueueID() {
@@ -237,37 +322,37 @@ public class ThreadCB extends IflThreadCB {
  */
 class ReadyQueue {
 
-    private QueueList queue1;
-    private QueueList queue2;
-    private QueueList queue3;
+    private GenericList queue1;
+    private GenericList queue2;
+    private GenericList queue3;
 
     public ReadyQueue() {
-        this.queue1 = new QueueList();
-        this.queue2 = new QueueList();
-        this.queue3 = new QueueList();
+        this.queue1 = new GenericList();
+        this.queue2 = new GenericList();
+        this.queue3 = new GenericList();
     }
 
-    public QueueList getQueue1() {
+    public GenericList getQueue1() {
         return queue1;
     }
 
-    public void setQueue1(QueueList queue1) {
+    public void setQueue1(GenericList queue1) {
         this.queue1 = queue1;
     }
 
-    public QueueList getQueue2() {
+    public GenericList getQueue2() {
         return queue2;
     }
 
-    public void setQueue2(QueueList queue2) {
+    public void setQueue2(GenericList queue2) {
         this.queue2 = queue2;
     }
 
-    public QueueList getQueue3() {
+    public GenericList getQueue3() {
         return queue3;
     }
 
-    public void setQueue3(QueueList queue3) {
+    public void setQueue3(GenericList queue3) {
         this.queue3 = queue3;
     }
 
@@ -283,38 +368,25 @@ class ReadyQueue {
         return queue3.isEmpty();
     }
 
-    public final synchronized void pushObjToQueue(int queue, Object Obj) {
+    public final synchronized void pushObjToQueue(int queue, Object obj) {
         if (queue == 1) {
-            queue1.push(obj);
+            queue1.insert(obj);
         } else if (queue == 2) {
-            queue2.push(obj);
+            queue2.insert(obj);
         } else if (queue == 3) {
-            queue3.push(obj);
+            queue3.insert(obj);
         }
     }
 
-    public final synchronized Object popObjectFromQueue(int queue, Object Obj) {
+    public final synchronized Object popObjectFromQueue(int queue) {
         if (queue == 1) {
-            return queue1.pop(obj);
+            return queue1.removeTail();
         } else if (queue == 2) {
-            return queue2.pop(obj);
+            return queue2.removeTail();
         } else if (queue == 3) {
-            return queue3.pop(obj);
+            return queue3.removeTail();
         }
-    }
-}
-
-class QueueList extends GenericList {
-
-    public QueueList() {
-        super();
+        return null;
     }
 
-    public final synchronized void push(Object obj) {
-        super.insert(obj);
-    }
-
-    public final synchronized Object pop() {
-        return super.removeTail();
-    }
 }
