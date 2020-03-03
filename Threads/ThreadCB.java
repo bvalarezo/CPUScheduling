@@ -58,9 +58,6 @@ public class ThreadCB extends IflThreadCB {
      * @OSPProject Threads
      */
     public static void init() {
-        // your code goes here
-        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         // set up the queue
         sharedReadyQueue = new ReadyQueue();
         invocation = 0;
@@ -84,8 +81,6 @@ public class ThreadCB extends IflThreadCB {
      */
     static public ThreadCB do_create(TaskCB task) {
         // your code goes here
-        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         if (task.getThreadCount() >= MaxThreadsPerTask) {
             dispatch();
             return null;
@@ -119,8 +114,6 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_kill() {
         // your code goes here
-        MyOut.print(this, "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         int status = getStatus(), i;
         TaskCB task = getTask();
         if (status == ThreadRunning) {
@@ -158,8 +151,6 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_suspend(Event event) {
         // your code goes here
-        MyOut.print(this, "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         if (getStatus() == ThreadRunning) {
             setStatus(ThreadWaiting);
             getTask().setCurrentThread(null);
@@ -181,8 +172,6 @@ public class ThreadCB extends IflThreadCB {
      */
     public void do_resume() {
         // your code goes here
-        MyOut.print(this, "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         if (getStatus() > ThreadWaiting) {
             setStatus(getStatus() - 1);
         } else if (getStatus() == ThreadWaiting) {
@@ -210,14 +199,11 @@ public class ThreadCB extends IflThreadCB {
      */
     public static int do_dispatch() {
         // your code goes here
-        MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
-        }.getClass().getEnclosingMethod().getName());
         invocation = (invocation >= 6) ? 1 : invocation + 1;
         long count;
         TaskCB oldTask = null, newTask = null;
         ThreadCB newThread = null, oldThread = null;
         // pop the next thread to run (New Thread)
-        MyOut.print("osp.Threads.ThreadCB", "PTBR() ==> " + MMU.getPTBR());
         try {
             oldThread = MMU.getPTBR().getTask().getCurrentThread();
             oldTask = MMU.getPTBR().getTask();
@@ -229,8 +215,6 @@ public class ThreadCB extends IflThreadCB {
         } finally {
             MMU.setPTBR(null);
         }
-        MyOut.print("osp.Threads.ThreadCB", "Invocation..." + invocation);
-        MyOut.print("osp.Threads.ThreadCB", "oldThread ==> " + oldThread);
         while (true) {
             if (0 <= invocation && invocation <= 3) {
                 if (!sharedReadyQueue.isQueue1Empty()) {
@@ -277,7 +261,6 @@ public class ThreadCB extends IflThreadCB {
             }
         }
         // Context Switch
-        MyOut.print("osp.Threads.ThreadCB", "newThread:status ==> " + newThread + ":" + newThread.getStatus());
         newTask = newThread.getTask();
         MMU.setPTBR(newTask.getPageTable());
         newTask.setCurrentThread(newThread);
@@ -326,6 +309,10 @@ public class ThreadCB extends IflThreadCB {
 
     }
 
+    /*
+     * Feel free to add methods/fields to improve the readability of your code
+     */
+
     public static ReadyQueue getSharedReadyQueue() {
         return sharedReadyQueue;
     }
@@ -353,10 +340,6 @@ public class ThreadCB extends IflThreadCB {
     public void setQueueID(int queueID) {
         this.queueID = queueID;
     }
-
-    /*
-     * Feel free to add methods/fields to improve the readability of your code
-     */
 
 }
 
