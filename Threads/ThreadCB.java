@@ -4,6 +4,7 @@ import java.util.Vector;
 
 import javax.xml.ws.Dispatch;
 
+import java.util.ArrayList;
 import java.util.Enumeration;
 import osp.Utilities.*;
 import osp.IFLModules.*;
@@ -124,6 +125,24 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print(this, "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
+        int status = getStatus(), i;
+        TaskCB task = getTask();
+        if (status == ThreadRunning) {
+            task.setCurrentThread(null);
+        } else if (status == ThreadReady) {
+            sharedReadyQueue.removeObjectFromQueue(getQueueID(), this);
+        } else if (status >= ThreadWaiting) {
+            for (i = 0; i < Device.getTableSize(); i++) {
+                Device.get(i).cancelPendingIO(this);
+            }
+        }
+        setStatus(ThreadKill);
+        ResourceCB.giveupResources(this);
+        task.removeThread(this);
+        if (task.getThreadCount() == 0) {
+            task.kill();
+        }
+        dispatch();
     }
 
     /**
@@ -238,30 +257,27 @@ public class ThreadCB extends IflThreadCB {
                     invocation = 5;
                 }
             case 6:
+                invocation = 0;
                 if (!sharedReadyQueue.isQueue3Empty()) {
                     newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(3);
-                    invocation = 0;
                     break;
                 } else {
                     // the entire Q is empty, try to reinstate the old thread.
                     if (oldThread == null) {
                         // there is nothing todo/run in this invocation...
-                        invocation = 0;
                         return FAILURE;
-
                     } else {
                         // MMU.getPTBR should be the same
                         MMU.setPTBR(oldTask.getPageTable());
                         oldTask.setCurrentThread(oldThread);
                         oldThread.setStatus(ThreadRunning);
                         oldThread.incrementDispatchCount();
-                        invocation = 0;
                         return SUCCESS;
                     }
                 }
         }
         // Context Switch
-        MyOut.print("osp.Threads.ThreadCB", "newThread ==> " + newThread);
+        MyOut.print("osp.Threads.ThreadCB", "newThread:status ==> " + newThread + ":" + newThread.getStatus());
         newTask = newThread.getTask();
         MMU.setPTBR(newTask.getPageTable());
         newTask.setCurrentThread(newThread);
@@ -359,30 +375,6 @@ class ReadyQueue {
         this.queue3 = new GenericList();
     }
 
-    public GenericList getQueue1() {
-        return queue1;
-    }
-
-    public void setQueue1(GenericList queue1) {
-        this.queue1 = queue1;
-    }
-
-    public GenericList getQueue2() {
-        return queue2;
-    }
-
-    public void setQueue2(GenericList queue2) {
-        this.queue2 = queue2;
-    }
-
-    public GenericList getQueue3() {
-        return queue3;
-    }
-
-    public void setQueue3(GenericList queue3) {
-        this.queue3 = queue3;
-    }
-
     public boolean isQueue1Empty() {
         return queue1.isEmpty();
     }
@@ -412,6 +404,17 @@ class ReadyQueue {
             return queue2.removeTail();
         } else if (queue == 3) {
             return queue3.removeTail();
+        }
+        return null;
+    }
+
+    public final synchronized Object removeObjectFromQueue(int queue, ThreadCB obj) {
+        if (queue == 1) {
+            return queue1.remove(obj);
+        } else if (queue == 2) {
+            return queue2.remove(obj);
+        } else if (queue == 3) {
+            return queue3.remove(obj);
         }
         return null;
     }
