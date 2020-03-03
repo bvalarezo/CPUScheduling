@@ -4,8 +4,6 @@ import java.util.Vector;
 
 import javax.xml.ws.Dispatch;
 
-import java.util.ArrayList;
-import java.util.Enumeration;
 import osp.Utilities.*;
 import osp.IFLModules.*;
 import osp.Tasks.*;
@@ -88,13 +86,11 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        ThreadCB thread;
-        if (MaxThreadsPerTask < task.getThreadCount()) {
-            thread = null;
+        if (task.getThreadCount() >= MaxThreadsPerTask) {
             dispatch();
-            return thread;
+            return null;
         }
-        thread = new ThreadCB(); // CREATE A THREAD
+        ThreadCB thread = new ThreadCB(); // CREATE A THREAD
         thread.setTask(task); // SET THREAD TO TASK
         if (task.addThread(thread) == FAILURE) { // TRY TO ADD TO TASK
             thread = null;
@@ -187,7 +183,6 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print(this, "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        MyOut.print(this, "ThreadStatus:" + printableStatus(this.getStatus()));
         if (getStatus() > ThreadWaiting) {
             setStatus(getStatus() - 1);
         } else if (getStatus() == ThreadWaiting) {
@@ -217,7 +212,7 @@ public class ThreadCB extends IflThreadCB {
         // your code goes here
         MyOut.print("osp.Threads.ThreadCB", "Entering Student Method..." + new Object() {
         }.getClass().getEnclosingMethod().getName());
-        invocation++;
+        invocation = (invocation >= 6) ? 1 : invocation + 1;
         long count;
         TaskCB oldTask = null, newTask = null;
         ThreadCB newThread = null, oldThread = null;
@@ -234,47 +229,52 @@ public class ThreadCB extends IflThreadCB {
         } finally {
             MMU.setPTBR(null);
         }
-        MyOut.print("osp.Threads.ThreadCB", "Invovation..." + invocation);
+        MyOut.print("osp.Threads.ThreadCB", "Invocation..." + invocation);
         MyOut.print("osp.Threads.ThreadCB", "oldThread ==> " + oldThread);
-        switch (invocation) {
-            case 1:
-            case 2:
-            case 3:
+        while (true) {
+            if (0 <= invocation && invocation <= 3) {
                 if (!sharedReadyQueue.isQueue1Empty()) {
                     newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(1);
                     break;
-
                 } else {
-                    invocation = 3;
+                    invocation = 4;
+                    continue;
                 }
-            case 4:
-            case 5:
+
+            } else if (4 <= invocation && invocation <= 5) {
                 if (!sharedReadyQueue.isQueue2Empty()) {
                     newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(2);
                     break;
-
                 } else {
-                    invocation = 5;
+                    invocation = 6;
+                    continue;
                 }
-            case 6:
-                invocation = 0;
+            } else if (invocation == 6) {
                 if (!sharedReadyQueue.isQueue3Empty()) {
                     newThread = (ThreadCB) sharedReadyQueue.popObjectFromQueue(3);
                     break;
                 } else {
-                    // the entire Q is empty, try to reinstate the old thread.
-                    if (oldThread == null) {
-                        // there is nothing todo/run in this invocation...
-                        return FAILURE;
+                    // check if entire Q is empty, try to cycle back
+                    if (!sharedReadyQueue.isEmpty()) {
+                        // reset back up
+                        invocation = 0;
+                        continue;
                     } else {
-                        // MMU.getPTBR should be the same
-                        MMU.setPTBR(oldTask.getPageTable());
-                        oldTask.setCurrentThread(oldThread);
-                        oldThread.setStatus(ThreadRunning);
-                        oldThread.incrementDispatchCount();
-                        return SUCCESS;
+                        // it is empty, try to reinstate the old thread
+                        if (oldThread == null) {
+                            // there is nothing todo/run in this invocation...
+                            return FAILURE;
+                        } else {
+                            // MMU.getPTBR should be the same
+                            MMU.setPTBR(oldTask.getPageTable());
+                            oldTask.setCurrentThread(oldThread);
+                            oldThread.setStatus(ThreadRunning);
+                            oldThread.incrementDispatchCount();
+                            return SUCCESS;
+                        }
                     }
                 }
+            }
         }
         // Context Switch
         MyOut.print("osp.Threads.ThreadCB", "newThread:status ==> " + newThread + ":" + newThread.getStatus());
@@ -385,6 +385,10 @@ class ReadyQueue {
 
     public boolean isQueue3Empty() {
         return queue3.isEmpty();
+    }
+
+    public boolean isEmpty() {
+        return isQueue1Empty() && isQueue2Empty() && isQueue3Empty();
     }
 
     public final synchronized void pushObjToQueue(int queue, Object obj) {

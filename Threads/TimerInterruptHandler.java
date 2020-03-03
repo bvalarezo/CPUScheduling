@@ -27,8 +27,10 @@ public class TimerInterruptHandler extends IflTimerInterruptHandler {
      * @OSPProject Threads
      */
     public void do_handleInterrupt() {
-        // your code goes here
-
+        MyOut.print("osp.Threads.TimerInterruptHandler", "Entering Student Method..." + new Object() {
+        }.getClass().getEnclosingMethod().getName());
+        HTimer.set(80);
+        ThreadCB.dispatch();
     }
 
     /*
